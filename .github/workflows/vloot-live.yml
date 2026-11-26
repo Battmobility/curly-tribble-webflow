@@ -1,0 +1,39 @@
+# Live voertuigkaart op battmobility.be (Onze vloot / Notre flotte)
+# Om de 5 minuten: publieke website-feed van de BFF ophalen, uitdunnen (allowlist)
+# en als vloot-live.json op de branch live-data zetten.
+# Geen geheimen nodig: de bron is publiek. Script: scripts/vloot-feed.mjs
+# De kaart leest https://raw.githubusercontent.com/Battmobility/curly-tribble-webflow/live-data/vloot-live.json
+name: vloot-live
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vloot-live
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Feed ophalen
+        run: node scripts/vloot-feed.mjs out/vloot-live.json
+      - name: Publiceren op live-data
+        run: |
+          cd out
+          git init -q -b live-data
+          git config user.name "vloot-live bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add vloot-live.json
+          git commit -q -m "vloot-live $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" live-data
